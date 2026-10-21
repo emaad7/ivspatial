@@ -1,0 +1,188 @@
+Metadata-Version: 2.4
+Name: ivspatial
+Version: 1.0.0
+Summary: A nonparametric test of spatial independence on neighbourhood graphs
+Author-email: Emad Ashtari Nezhad <emaad7@gmail.com>
+License-Expression: MIT
+Project-URL: Homepage, https://github.com/emaad7/ivspatial
+Project-URL: Source, https://github.com/emaad7/ivspatial
+Project-URL: Documentation, https://github.com/emaad7/ivspatial/blob/main/GUIDE.html
+Project-URL: Issues, https://github.com/emaad7/ivspatial/issues
+Keywords: spatial independence,spatial autocorrelation,permutation test,symbolic dynamics,lattice data,areal data,point data,nonparametric,Moran
+Classifier: Programming Language :: Python :: 3
+Classifier: Operating System :: OS Independent
+Classifier: Intended Audience :: Science/Research
+Classifier: Topic :: Scientific/Engineering :: Mathematics
+Classifier: Topic :: Scientific/Engineering :: GIS
+Requires-Python: >=3.8
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: numpy>=1.20
+Requires-Dist: scipy>=1.7
+Provides-Extra: excel
+Requires-Dist: pandas; extra == "excel"
+Requires-Dist: openpyxl; extra == "excel"
+Provides-Extra: shapefile
+Requires-Dist: pyshp; extra == "shapefile"
+Provides-Extra: maps
+Requires-Dist: matplotlib; extra == "maps"
+Provides-Extra: all
+Requires-Dist: pandas; extra == "all"
+Requires-Dist: openpyxl; extra == "all"
+Requires-Dist: pyshp; extra == "all"
+Requires-Dist: matplotlib; extra == "all"
+Dynamic: license-file
+
+# ivspatial — nonparametric tests of spatial independence
+
+`ivspatial` tests whether values observed at spatial units — cells of a grid, polygons such as
+counties, irregularly located points, or the nodes of a network — are independent and
+identically distributed (i.i.d.) across the units. It implements the procedure of
+
+> Ashtari Nezhad, E. (2026). *A nonparametric test of spatial independence on neighbourhood graphs.*
+
+The tests are **rank based and exact**: under independence their P-values are valid for every
+sample size, every graph and every continuous distribution, with no weight matrix, bandwidth or
+tuning to choose. Besides the P-value the package reports **what kind** of dependence is present
+(in the level, in the scale, or only among several neighbours), maps **where** it occurs, and can
+let the data choose the resolution with exact post-selection calibration.
+
+The package can be used through a **window** (GUI, no programming) or through **code** (a Python
+function or a terminal command); both give identical results.
+
+**Full user guide: [`GUIDE.html`](GUIDE.html)** — open it in any web browser, or run
+`ivspatial guide` after installation (also the *User guide* button in the window).
+
+---
+
+## 1. Installation
+
+You need **Python 3.8 or later** (<https://www.python.org/downloads/>; on Windows tick
+**"Add python.exe to PATH"**). Then
+
+```
+pip install ivspatial                                   # from PyPI
+pip install "ivspatial[all]"                            # with Excel, shapefile and map support
+pip install git+https://github.com/emaad7/ivspatial    # latest version from GitHub
+```
+
+`numpy` and `scipy` are installed automatically. Optional: `pandas` and `openpyxl` (Excel files),
+`pyshp` (shapefiles; GeoJSON needs nothing), `matplotlib` (maps). An R version with the same
+functions and a graphical interface: <https://github.com/emaad7/ivspatial-r>.
+
+**The graphical interface is included:** type `ivspatial-gui` (or `python -m ivspatial`).
+Without installing: download the ZIP from GitHub, unzip, run `pip install numpy scipy`, and
+double-click `run_gui_windows.bat` (Windows), `run_gui_mac_linux.command` (macOS/Linux) or
+`ivspatial_gui.pyw`.
+
+---
+
+## 2. Your data
+
+* **Points or grid cells:** a CSV, TXT or Excel file with **one row per site** and columns for the
+  coordinates (or the row and column indices of a grid) and for the variables.
+* **Polygons:** a shapefile (`.shp`, with its `.dbf` and `.shx`) or a GeoJSON file; the numeric
+  attributes are the variables.
+* **Networks or your own graph:** the table of variables plus an edge list (a CSV file with two
+  columns of site numbers, starting at 1).
+* No missing values at the sites used (remove incomplete sites first). At least 20 sites; a few
+  hundred are recommended.
+
+Examples: `examples/mercer_hall_wheat.csv` (grain and straw yields of 500 plots on a 20 x 25
+grid; columns `row`, `col`) and `examples/baltimore_houses.csv` (211 house sales with
+coordinates `X`, `Y`, price and characteristics).
+
+---
+
+## 3. The neighbourhood graph
+
+| Data | Graph | Command-line option |
+|---|---|---|
+| points | each site and its k nearest neighbours | `--graph knn --x X --y Y --k 4` |
+| points | Delaunay triangulation (contiguity of Voronoi cells) | `--graph delaunay --x X --y Y` |
+| points | all sites within a distance | `--graph band --x X --y Y --radius 1500` |
+| grid | rook or queen contiguity from row/column indices | `--graph lattice --row row --col col` |
+| grid | nrow x ncol, rows stored row by row | `--graph grid --nrow 20 --ncol 25` |
+| polygons | queen or rook contiguity | `--graph polygons --contiguity queen` |
+| any | your own edge list | `--graph edges --edges edges.csv` |
+
+---
+
+## 4. Python
+
+```python
+import numpy as np
+import ivspatial as iv
+
+tab = iv.read_table("examples/baltimore_houses.csv")
+g = iv.knn_graph(np.c_[tab["X"], tab["Y"]], k=4)
+res = iv.spatial_test(np.log(tab["PRICE"]), g, seed=1)
+print(res)                      # report
+res.p_value, res.reject         # P-value of the combined test C4 and the decision
+res.components                  # T_V(4,3), T_V(4,2), RM, RS with P-values
+res.features                    # standardized features of T_V(3,2)
+
+# residuals of a regression with exogenous regressors (no correction needed)
+X = np.column_stack([tab[c] for c in ("NROOM", "NBATH", "SQFT", "AGE")])
+print(iv.residual_test(np.log(tab["PRICE"]), X, g, seed=1))
+
+# polygons
+polys, att = iv.read_polygons("counties.shp")
+gq = iv.polygon_contiguity_graph(polys, "queen")
+print(iv.spatial_test(att["HR90"], gq, seed=1))
+
+# many variables on one graph (one reference table, Benjamini-Hochberg adjustment)
+w = iv.read_table("examples/mercer_hall_wheat.csv")
+results, adj = iv.screen({"grain": w["grain"], "straw": w["straw"]}, iv.lattice_graph(20, 25), seed=1)
+
+# data-driven resolution, several spatial lags, maps, null limits
+x = np.log(tab["PRICE"])
+iv.spatial_test(x, g, resolution="auto", lags=2, seed=1)
+lf = iv.local_features(x, g)    # local contributions for maps
+iv.null_limit(g, d=4, s=2, value=35.2)
+```
+
+## 5. Command line
+
+```
+ivspatial examples/baltimore_houses.csv --x X --y Y --graph knn --k 4 --column PRICE --transform log --seed 1
+ivspatial examples/mercer_hall_wheat.csv --graph lattice --row row --col col --all --seed 1
+ivspatial counties.shp --column HR90 --residuals-on RD90,PS90,UE90,DV90,MA90,SOUTH --seed 1
+ivspatial data.csv --x x --y y --column y --resolution auto --lags 2 --local local.csv
+ivspatial null data.csv --x x --y y --graph delaunay --d 4 --s 2 --value 35
+ivspatial gui
+ivspatial guide
+```
+
+## 6. Reading the output
+
+* **C4** is the proposed test: the minimum P-value of four components, calibrated exactly from the
+  same random rank arrangements. A P-value below the level means that the values are not i.i.d.
+  across the sites.
+* **T_V(4,3)** sees dependence in the joint distribution of a site and two neighbours, including
+  dependence that is invisible in pairs; **T_V(4,2)** pairs with resolved tails; **RM** linear
+  association of ranks (level); **RS** association of squared ranks (scale).
+* **Standardized features** (about N(0,1) under independence): `c.lin|n.lin` similarity in level
+  between a site and its neighbours; `c.quad|n.quad` extreme values next to extreme values;
+  `n.lin^2`, `n.quad^2` the same between neighbours. |value| > 3 is notable.
+* **Local features** (`local_features`, or *Map* in the window) show where a feature receives its
+  contribution, like local indicators of spatial association; they are descriptive, not tests.
+* **resolution="auto"** chooses among T_V(d, s), d = 2..6, s = 2, 3, by the minimum-P rule and
+  reports the choice; the P-value accounts for the choice exactly.
+
+## 7. Notes
+
+* The null hypothesis is that the values are i.i.d. A smooth trend or heteroskedasticity is
+  detected as dependence; model the trend and test the residuals if needed.
+* Residual tests are valid without correction when the regressors are exogenous. They are not
+  valid for spatial-lag models (y regressed on W y); use a model-based bootstrap there.
+* Ties (discrete data) are broken at random, which keeps the tests exact.
+
+## 8. Citation
+
+Ashtari Nezhad, E. (2026). A nonparametric test of spatial independence on neighbourhood graphs. Manuscript.
+
+Ashtari Nezhad, E. (2026). ivspatial: nonparametric tests of spatial independence. Python
+package version 1.0.0. <https://github.com/emaad7/ivspatial>
+
+License: MIT.

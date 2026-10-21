@@ -1,0 +1,5 @@
+[console_scripts]
+ivspatial = ivspatial.cli:main
+
+[gui_scripts]
+ivspatial-gui = ivspatial.gui:main

@@ -1,0 +1,47 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ivspatial"
+version = "1.0.0"
+description = "A nonparametric test of spatial independence on neighbourhood graphs"
+readme = "README.md"
+requires-python = ">=3.8"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{name = "Emad Ashtari Nezhad", email = "emaad7@gmail.com"}]
+dependencies = ["numpy>=1.20", "scipy>=1.7"]
+keywords = ["spatial independence", "spatial autocorrelation", "permutation test", "symbolic dynamics",
+            "lattice data", "areal data", "point data", "nonparametric", "Moran"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: OS Independent",
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering :: Mathematics",
+    "Topic :: Scientific/Engineering :: GIS",
+]
+
+[project.urls]
+Homepage = "https://github.com/emaad7/ivspatial"
+Source = "https://github.com/emaad7/ivspatial"
+Documentation = "https://github.com/emaad7/ivspatial/blob/main/GUIDE.html"
+Issues = "https://github.com/emaad7/ivspatial/issues"
+
+[project.optional-dependencies]
+excel = ["pandas", "openpyxl"]
+shapefile = ["pyshp"]
+maps = ["matplotlib"]
+all = ["pandas", "openpyxl", "pyshp", "matplotlib"]
+
+[project.scripts]
+ivspatial = "ivspatial.cli:main"
+
+[project.gui-scripts]
+ivspatial-gui = "ivspatial.gui:main"
+
+[tool.setuptools]
+packages = ["ivspatial"]
+
+[tool.setuptools.package-data]
+ivspatial = ["GUIDE.html"]
